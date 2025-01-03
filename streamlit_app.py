@@ -43,11 +43,15 @@ def search_inventory(inventory):
     st.header("Search Inventory")
     search_query = st.text_input("Enter Chemical Name or CAS Number to Search")
     if search_query:
+        inventory["Chemical Name"] = inventory["Chemical Name"].astype(str)
+        inventory["CAS Number"] = inventory["CAS Number"].astype(str)
+
         # Filter the inventory based on the query
         search_results = inventory[
             inventory["Chemical Name"].str.contains(search_query, case=False, na=False) |
             inventory["CAS Number"].str.contains(search_query, case=False, na=False)
         ]
+
         if not search_results.empty:
             st.write("Search Results:")
             st.write(search_results)
