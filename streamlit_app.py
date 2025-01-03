@@ -1,43 +1,41 @@
 import streamlit as st
 import pandas as pd
-import os
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-# File to save the inventory
-INVENTORY_FILE = "inventory.csv"
+# Authenticate and connect to Google Sheets
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+credentials = ServiceAccountCredentials.from_json_keyfile_name("google_credentials.json", scope)
+client = gspread.authorize(credentials)
+
+# Open your Google Sheet
+sheet = client.open("Chemical Inventory").sheet1
+
+# Load data from Google Sheets into a DataFrame
+data = sheet.get_all_records()
+inventory = pd.DataFrame(data)
 
 # Title of the app
 st.title("Chemical Inventory Manager")
-
-# Description
-st.write("Manage your lab's chemical inventory efficiently adasd!")
-
-# Load inventory from file
-if os.path.exists(INVENTORY_FILE):
-    st.session_state["inventory"] = pd.read_csv(INVENTORY_FILE)
-else:
-    st.session_state["inventory"] = pd.DataFrame(columns=["Chemical Name", "Quantity", "Unit", "Expiry Date"])
 
 # Add a new chemical
 st.header("Add New Chemical")
 with st.form("add_chemical_form"):
     name = st.text_input("Chemical Name")
+    cas_number = st.text_input("CAS Number")
     quantity = st.number_input("Quantity", min_value=0.0, step=0.1)
     unit = st.selectbox("Unit", ["g", "kg", "mL", "L"])
+    storage = st.text_input("Storage Location")
     expiry_date = st.date_input("Expiry Date")
+    safety_notes = st.text_area("Safety Notes")
     submitted = st.form_submit_button("Add Chemical")
 
     if submitted:
-        # Add the chemical to inventory
-        new_row = pd.DataFrame({
-            "Chemical Name": [name],
-            "Quantity": [quantity],
-            "Unit": [unit],
-            "Expiry Date": [expiry_date]
-        })
-        st.session_state["inventory"] = pd.concat([st.session_state["inventory"], new_row], ignore_index=True)
-        st.session_state["inventory"].to_csv(INVENTORY_FILE, index=False)  # Save to file
+        # Append data to Google Sheets
+        new_row = [name, cas_number, quantity, unit, storage, str(expiry_date), safety_notes]
+        sheet.append_row(new_row)
         st.success(f"{name} added to inventory!")
 
-# Display inventory
+# Display the inventory
 st.header("Current Inventory")
-st.write(st.session_state["inventory"])
+st.write(inventory)
