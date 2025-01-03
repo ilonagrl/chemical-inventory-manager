@@ -1,4 +1,4 @@
-gspread
 oauth2client
 pandas
 streamlit
+st-gsheets-connection

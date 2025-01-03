@@ -1,19 +1,9 @@
 import streamlit as st
 import pandas as pd
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from streamlit_gsheets import GSheetsConnection
 
-# Authenticate and connect to Google Sheets
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-credentials = ServiceAccountCredentials.from_json_keyfile_name("google_credentials.json", scope)
-client = gspread.authorize(credentials)
-
-# Open your Google Sheet
-sheet = client.open("Chemical Inventory").sheet1
-
-# Load data from Google Sheets into a DataFrame
-data = sheet.get_all_records()
-inventory = pd.DataFrame(data)
+conn = st.connection("gsheets", type=GSheetsConnection)
+inventory = conn.read()
 
 # Title of the app
 st.title("Chemical Inventory Manager")
@@ -32,8 +22,22 @@ with st.form("add_chemical_form"):
 
     if submitted:
         # Append data to Google Sheets
-        new_row = [name, cas_number, quantity, unit, storage, str(expiry_date), safety_notes]
-        sheet.append_row(new_row)
+        new_row = pd.DataFrame([{
+            "Chemical Name": name,
+            "CAS Number": cas_number,
+            "Quantity": quantity,
+            "Unit": unit,
+            "Storage Location": storage,
+            "Expiry Date": str(expiry_date),
+            "Safety Notes": safety_notes
+        }])
+        inventory = pd.concat([inventory, new_row], ignore_index=True)
+
+        # Write the updated inventory back to Google Sheets
+        conn.update(
+            data=inventory
+        )
+        # Success message
         st.success(f"{name} added to inventory!")
 
 # Display the inventory
