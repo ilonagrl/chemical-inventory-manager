@@ -5,9 +5,6 @@ from streamlit_gsheets import GSheetsConnection
 import requests
 import plotly.express as px
 
-
-
-
 st.set_page_config(page_title = "Chemical Inventory Manager", page_icon = "owl")
 
 # Connect to the Google Sheet
@@ -16,11 +13,18 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # usage = conn.read(worksheet="Usage") # 2nd way - optimal but might provide conflicts with users > 1
 
 # Title of the app
-st.title("Chemical Inventory Manager")
+# st.title(":lab_coat: Chemical Inventory Manager")
 
 # Define the pages as functions
 def add_chemical(conn):
-    st.header("Add New Chemical")
+    st.header(":petri_dish: Add New Chemical")
+
+    # Instruction text
+    with st.expander(":pushpin: How to use this form?"):
+        st.markdown("""
+        Add a chemical to the lab inventory by providing the following details: 
+        chemical name, CAS number, initial quantity, expiry date, and relevant notes (e.g., storage instructions).
+        """)
 
     inventory = conn.read(worksheet="Inventory", ttl=1)
 
@@ -54,7 +58,14 @@ def log_chemical_usage(conn):
     inventory = conn.read(worksheet="Inventory", ttl=1)
     usage = conn.read(worksheet="Usage", ttl=1) # 1 way, not optimal, loading usage after every click (tll=1 means cache for 1 sec)
 
-    st.header("Log Chemical Usage")
+    st.header(":test_tube: Log Chemical Usage")
+    # Instruction text
+    with st.expander(":pushpin: How to use this form?"):
+        st.markdown("""
+        Enter the chemicals and amounts used today. You can also add notes, such as the purpose of use or any unusual circumstances. 
+                    This information will help estimate when to reorder chemicals. The data will be recorded in the database with today's date.
+        """)
+
     with st.form("log_chemical_usage_form"):
         chemical_name = st.selectbox("Select Chemical", inventory["Chemical Name"].unique())
         amount_used = st.number_input("Amount Used (g)", min_value=0.0, step=0.1)
@@ -76,7 +87,7 @@ def log_chemical_usage(conn):
 
 def view_inventory(conn):
     # Title: Current Inventory
-    st.header("Current Inventory")
+    st.header(":clipboard: Current Inventory")
     st.subheader("Important Messages")
     
     # Load data
@@ -163,7 +174,7 @@ def view_inventory(conn):
     df_sorted = df_total_usage_per_chemical_name.sort_values("Expiry Date", ascending=False)
     
     # Title of chart: Remaining Percentage of Chemicals
-    st.subheader("Remaining Percentage of Chemicals")
+    st.subheader("Chart: Remaining Percentage of Chemicals")
     
     # Create a bar chart
     fig = px.bar(
@@ -184,7 +195,7 @@ def view_inventory(conn):
     )
 
     # Expander: How to read this chart?
-    with st.expander("How to read this chart?"):
+    with st.expander(":pushpin: How to read this chart?"):
         st.markdown("""
         - **Sorting:** Bars are arranged by expiry dates (earliest at the top, latest at the bottom).
         - **Colors:** Darker bars indicate lower remaining percentages, highlighting chemicals to prioritize.
@@ -198,7 +209,7 @@ def view_inventory(conn):
     st.subheader("Table: Current Inventory")
     
     # Expander: How to read this table?
-    with st.expander("How to read this table?"):
+    with st.expander(":pushpin: How to read this table?"):
         st.markdown("""
         - This table lists all chemicals in the laboratory, including:
           - **CAS number**: Unique identifier for each chemical.
@@ -228,10 +239,10 @@ def view_inventory(conn):
 
 
 def view_usage_history(conn):
-    st.header("Usage History")
+    st.header(":chart_with_upwards_trend: Usage History")
 
     # Instruction text
-    with st.expander("How to use this page?"):
+    with st.expander(":pushpin: How to use this page?"):
         st.markdown("""
         Use the search bar to select the chemicals you want to explore.
         The table shows the complete usage history.
@@ -346,20 +357,53 @@ def view_usage_history(conn):
         st.plotly_chart(fig_percentage)
 
 
+# Sidebar title and description
+st.sidebar.title(":lab_coat: Chemical Inventory Manager")
+st.sidebar.markdown("""
+A streamlined app for managing your lab's chemical inventory. 
+Log usage, track inventory, and plan reorders efficiently.
+""")
+
 # Map pages to functions
 PAGES = {
-    "Add Chemical": lambda: add_chemical(conn),
-    "Log Usage": lambda: log_chemical_usage(conn),
     "Current Inventory": lambda: view_inventory(conn),
-    "Usage History": lambda: view_usage_history(conn)
+    "Log Chemical Usage": lambda: log_chemical_usage(conn),
+    "Usage History": lambda: view_usage_history(conn),
+    "Add New Chemical": lambda: add_chemical(conn),
 }
 
-# Select the operation
-# section = st.selectbox("Select an Operation", list(PAGES.keys()))
+# Sidebar navigation with radio buttons and icons
+st.sidebar.subheader("Navigation")
+options_with_icons = [
+    "📋 Current Inventory",
+    "🧪 Log Chemical Usage",
+    "📈 Usage History",
+    "➕ Add New Chemical"
+]
+selected_option = st.sidebar.radio("Select a Page", options_with_icons)
 
-# Sidebar navigation
-st.sidebar.title("Navigation")
-section = st.sidebar.selectbox("Select a Page", list(PAGES.keys()))
+# Map the selected option (with icons) to the page key (without icons)
+section_key = selected_option.split(" ", 1)[1]  # Extract the text after the emoji
 
 # Render the selected page
-PAGES[section]()
+if section_key in PAGES:
+    PAGES[section_key]()
+else:
+    st.sidebar.error("Selected page not found.")
+
+# About Section
+with st.sidebar.expander("About the App"):
+    st.markdown("""
+    **Chemical Inventory Manager**  
+    - Author: Ilona Goral 
+    - Version: 1.0  
+    - Purpose: Manage chemicals efficiently in your lab.  
+    """)
+
+# Links
+with st.sidebar.expander("Contact"):
+    st.markdown("[My Site](https://www.banalytics.ca/) | Email: ilona@banalytics.ca")
+
+# Optional: Current Date
+from datetime import datetime
+st.sidebar.markdown(f"**Date:** {datetime.now().strftime('%Y-%m-%d')}")
