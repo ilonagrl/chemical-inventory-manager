@@ -229,11 +229,20 @@ def view_inventory(conn):
 
 def view_usage_history(conn):
     st.header("Usage History")
-    usage = conn.read(worksheet="Usage", ttl=1)
-    st.subheader("Usage Table")
-    st.write(usage)
 
-    # Load inventory and usage data
+    # Instruction text
+    with st.expander("How to use this page?"):
+        st.markdown("""
+        Use the search bar to select the chemicals you want to explore.
+        The table shows the complete usage history.
+        Charts provide insights:
+        - **Cumulative Usage:** Tracks how the used amount increases over time.
+        - **Remaining Quantities:** Shows how the remaining amount changes.
+        - **Remaining Percentage:** Displays the remaining amount as a percentage of the initial quantity.
+        """)
+
+    # Load usage and inventory data
+    usage = conn.read(worksheet="Usage", ttl=1)
     inventory = conn.read(worksheet="Inventory", ttl=1)
 
     # Merge inventory and usage data
@@ -258,17 +267,41 @@ def view_usage_history(conn):
         df_usage["Initial Quantity (g)"] - df_usage["Cumulative Amount Used (g)"]
     )
 
+    # Calculate remaining percentage
+    df_usage["Remaining Percentage (%)"] = (
+        df_usage["Remaining Quantity (g)"] / df_usage["Initial Quantity (g)"] * 100
+    )
+
+    # Multiselect functionality
+    st.subheader("Search Chemicals")
+    chemicals = df_usage["Chemical Name"].unique()
+    selected_chemicals = st.multiselect("Select Chemicals to Filter", options=chemicals)
+
+    if selected_chemicals:
+        # Filter data based on selected chemicals
+        filtered_data = df_usage[df_usage["Chemical Name"].isin(selected_chemicals)]
+    else:
+        # If no chemicals are selected, display all data
+        filtered_data = df_usage
+
+    # Default sorting by Date
+    filtered_data = filtered_data.sort_values(by="Date")
+
+    # Display filtered table
+    st.subheader("Filtered Usage Table")
+    st.write(filtered_data)
+
     # Create tabs
-    tab1, tab2 = st.tabs(["Cumulative Usage", "Remaining Quantities"])
+    tab1, tab2, tab3 = st.tabs(["Cumulative Usage", "Remaining Quantities", "Remaining Percentage"])
 
     # Tab 1: Cumulative Usage Chart
     with tab1:
         st.subheader("Cumulative Usage of Chemicals Over Time")
         fig_cumulative = px.line(
-            df_usage,
+            filtered_data,
             x="Date",
             y="Cumulative Amount Used (g)",
-            color="Chemical Name",  # One line per chemical
+            color="Chemical Name",
             title="Cumulative Chemical Usage Over Time",
             labels={
                 "Cumulative Amount Used (g)": "Cumulative Amount Used (g)",
@@ -282,10 +315,10 @@ def view_usage_history(conn):
     with tab2:
         st.subheader("Remaining Quantities of Chemicals Over Time")
         fig_remaining = px.line(
-            df_usage,
+            filtered_data,
             x="Date",
             y="Remaining Quantity (g)",
-            color="Chemical Name",  # One line per chemical
+            color="Chemical Name",
             title="Remaining Quantities of Chemicals Over Time",
             labels={
                 "Remaining Quantity (g)": "Remaining Quantity (g)",
@@ -295,13 +328,30 @@ def view_usage_history(conn):
         )
         st.plotly_chart(fig_remaining)
 
+    # Tab 3: Remaining Percentage Chart
+    with tab3:
+        st.subheader("Remaining Percentage of Chemicals Over Time")
+        fig_percentage = px.line(
+            filtered_data,
+            x="Date",
+            y="Remaining Percentage (%)",
+            color="Chemical Name",
+            title="Remaining Percentage of Chemicals Over Time",
+            labels={
+                "Remaining Percentage (%)": "Remaining Percentage (%)",
+                "Date": "Date"
+            },
+            height=500
+        )
+        st.plotly_chart(fig_percentage)
+
 
 # Map pages to functions
 PAGES = {
     "Add Chemical": lambda: add_chemical(conn),
     "Log Usage": lambda: log_chemical_usage(conn),
-    "View Inventory": lambda: view_inventory(conn),
-    "View Usage History": lambda: view_usage_history(conn)
+    "Current Inventory": lambda: view_inventory(conn),
+    "Usage History": lambda: view_usage_history(conn)
 }
 
 # Select the operation
