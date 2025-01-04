@@ -1,7 +1,12 @@
 import streamlit as st
+import numpy as np
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 import requests
+import plotly.express as px
+
+
+st.set_page_config(page_title = "Chemical Inventory Manager", page_icon = "owl")
 
 # Connect to the Google Sheet
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -97,10 +102,100 @@ def view_inventory(conn):
     
     st.write(df_total_usage_per_chemical_name)
 
+    # Calculate Remeaning percent
+    df_total_usage_per_chemical_name["Remaining Percent (%)"] = (round(
+        100 * df_total_usage_per_chemical_name["Remaining Amount (g)"] / df_total_usage_per_chemical_name["Initial Quantity (g)"],2)
+    )
+
+    # Sort data in descending order by 'Rem. Perc"
+    df_sorted = df_total_usage_per_chemical_name.sort_values(
+    "Remaining Percent (%)", ascending=False
+    )
+    
+    # Create a bar chart
+    fig = px.bar(
+        df_sorted,
+        x="Chemical Name",
+        y="Remaining Percent (%)",
+        color="Remaining Percent (%)",  # Color bars based on remaining percentage
+        color_continuous_scale="Viridis",  # Choose a color scale (e.g., Viridis, Plasma, etc.)
+        title="Remaining Percentage of Chemicals",
+        labels={"Remaining Percent (%)": "Remaining Percentage (%)"},  # Axis labels
+        height=400
+    )
+
+    # Show the chart in Streamlit
+    st.plotly_chart(fig)
+
+    
 def view_usage_history(conn):
     st.header("Usage History")
     usage = conn.read(worksheet="Usage", ttl=1)
+    st.subheader("Usage Table")
     st.write(usage)
+
+    # Load inventory and usage data
+    inventory = conn.read(worksheet="Inventory", ttl=1)
+
+    # Merge inventory and usage data
+    df_usage = pd.merge(
+        inventory,
+        usage[["Date", "Chemical Name", "Amount Used (g)"]],
+        on=["Chemical Name"],
+        how="left"
+    )
+
+    # Ensure Date is in datetime format
+    df_usage["Date"] = pd.to_datetime(df_usage["Date"])
+
+    # Sort data by Chemical Name and Date
+    df_usage = df_usage.sort_values(by=["Chemical Name", "Date"])
+
+    # Calculate cumulative usage for each chemical
+    df_usage["Cumulative Amount Used (g)"] = df_usage.groupby("Chemical Name")["Amount Used (g)"].cumsum()
+
+    # Calculate remaining quantity
+    df_usage["Remaining Quantity (g)"] = (
+        df_usage["Initial Quantity (g)"] - df_usage["Cumulative Amount Used (g)"]
+    )
+
+    # Create tabs
+    tab1, tab2 = st.tabs(["Cumulative Usage", "Remaining Quantities"])
+
+    # Tab 1: Cumulative Usage Chart
+    with tab1:
+        st.subheader("Cumulative Usage of Chemicals Over Time")
+        fig_cumulative = px.line(
+            df_usage,
+            x="Date",
+            y="Cumulative Amount Used (g)",
+            color="Chemical Name",  # One line per chemical
+            title="Cumulative Chemical Usage Over Time",
+            labels={
+                "Cumulative Amount Used (g)": "Cumulative Amount Used (g)",
+                "Date": "Date"
+            },
+            height=500
+        )
+        st.plotly_chart(fig_cumulative)
+
+    # Tab 2: Remaining Quantities Chart
+    with tab2:
+        st.subheader("Remaining Quantities of Chemicals Over Time")
+        fig_remaining = px.line(
+            df_usage,
+            x="Date",
+            y="Remaining Quantity (g)",
+            color="Chemical Name",  # One line per chemical
+            title="Remaining Quantities of Chemicals Over Time",
+            labels={
+                "Remaining Quantity (g)": "Remaining Quantity (g)",
+                "Date": "Date"
+            },
+            height=500
+        )
+        st.plotly_chart(fig_remaining)
+
 
 # Map pages to functions
 PAGES = {
@@ -111,7 +206,11 @@ PAGES = {
 }
 
 # Select the operation
-section = st.selectbox("Select an Operation", list(PAGES.keys()))
+# section = st.selectbox("Select an Operation", list(PAGES.keys()))
+
+# Sidebar navigation
+st.sidebar.title("Navigation")
+section = st.sidebar.selectbox("Select a Page", list(PAGES.keys()))
 
 # Render the selected page
 PAGES[section]()
