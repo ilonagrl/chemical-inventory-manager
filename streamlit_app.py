@@ -357,6 +357,7 @@ def view_usage_history(conn):
         st.plotly_chart(fig_percentage)
 
 
+
 # Sidebar title and description
 st.sidebar.title(":lab_coat: Chemical Inventory Manager")
 st.sidebar.markdown("""
@@ -390,6 +391,16 @@ if section_key in PAGES:
     PAGES[section_key]()
 else:
     st.sidebar.error("Selected page not found.")
+
+# How to use Section
+with st.sidebar.expander("How to Use This App"):
+    st.markdown("""
+    How to Use This App:
+    - **📋 Current Inventory:** View the full lab inventory and monitor chemical usage.
+    - **🧪 Log Chemical Usage:** Record today's chemical usage in the lab.
+    - **📈 Usage History:** Track usage levels and consumption trends over time.
+    - **➕ Add New Chemical:** Add a new chemical to the inventory
+    """)
 
 # About Section
 with st.sidebar.expander("About the App"):
