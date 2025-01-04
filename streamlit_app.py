@@ -5,8 +5,7 @@ import requests
 
 # Connect to the Google Sheet
 conn = st.connection("gsheets", type=GSheetsConnection)
-WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyc34ID-pOXilSRyKATdL_9BN9DPig_eUOFKYMRtb8Um4yDOTVqg930OeVgKlE0fODr/exec"
-
+ 
 # usage = conn.read(worksheet="Usage") # 2nd way - optimal but might provide conflicts with users > 1
 
 # Title of the app
@@ -42,34 +41,6 @@ def add_chemical(conn):
             # Write the updated inventory back to Google Sheets
             conn.update(data=updated_inventory,  worksheet="Inventory")
             st.success(f"{name} added to inventory!")
-
-def add_chemical_web_app():
-    st.header("Add New Chemical")
-    with st.form("add_chemical_form"):
-        name = st.text_input("Chemical Name")
-        cas_number = st.text_input("CAS Number")
-        initial_quantity = st.number_input("Initial Quantity (g)", min_value=0.0, step=0.1)
-        expiry_date = st.date_input("Expiry Date")
-        notes = st.text_area("Notes")
-        submitted = st.form_submit_button("Add Chemical")
-
-        if submitted:
-            # Prepare the data payload
-            data = {
-                "name": name,
-                "casNumber": cas_number,
-                "initialQuantity": initial_quantity,
-                "expiryDate": str(expiry_date),
-                "notes": notes
-            }
-
-            # Send the data to the Google Apps Script Web App
-            response = requests.post(WEB_APP_URL, json=data)
-
-            if response.status_code == 200:
-                st.success(f"{name} added successfully!")
-            else:
-                st.error("Failed to add chemical. Please try again.")
 
 def log_chemical_usage(conn):
     # Load the Inventory and Usage tabs
