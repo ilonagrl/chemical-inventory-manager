@@ -2,3 +2,5 @@ oauth2client
 pandas
 streamlit
 st-gsheets-connection
+numpy
+plotly.express
