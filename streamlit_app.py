@@ -31,9 +31,9 @@ def add_chemical(conn):
             new_row = pd.DataFrame([{
                 "Chemical Name": name,
                 "CAS Number": cas_number,
-                "Quantity": initial_quantity,
+                "Initial Quantity (g)": initial_quantity,
                 "Expiry Date": str(expiry_date),
-                "Safety Notes": notes
+                "Notes": notes
                 #"Unit": unit,
                 #"Storage Location": storage,
     
@@ -97,8 +97,34 @@ def log_chemical_usage(conn):
 
 def view_inventory(conn):
     st.header("Current Inventory")
+
     inventory = conn.read(worksheet="Inventory", ttl=1)
-    st.write(inventory)
+    usage = conn.read(worksheet="Usage", ttl=1)
+
+    usage["Amount Used (g)"] = usage["Amount Used (g)"].astype(float)
+
+    df_inventory_with_usage = pd.merge(
+        inventory,
+        usage[["Date", "Chemical Name", "Amount Used (g)"]],
+        on=["Chemical Name"],
+        how="left"
+    )
+
+    df_total_usage_per_chemical_name = df_inventory_with_usage.groupby(["Chemical Name"])["Amount Used (g)"].sum().reset_index()
+    df_total_usage_per_chemical_name.rename(columns={"Amount Used (g)": "Total Amount Used (g)"}, inplace=True)
+
+    df_total_usage_per_chemical_name = pd.merge(
+        inventory,
+        df_total_usage_per_chemical_name,
+        on=["Chemical Name"],
+        how="left"
+    )
+
+    df_total_usage_per_chemical_name["Total Amount Used (g)"] = df_total_usage_per_chemical_name["Total Amount Used (g)"].fillna(0.0)
+
+    df_total_usage_per_chemical_name["Remaining Amount (g)"] = df_total_usage_per_chemical_name["Initial Quantity (g)"] - df_total_usage_per_chemical_name["Total Amount Used (g)"] 
+    
+    st.write(df_total_usage_per_chemical_name)
 
 def view_usage_history(conn):
     st.header("Usage History")
